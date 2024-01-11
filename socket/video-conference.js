@@ -1,6 +1,6 @@
 const NodeCache = require("node-cache");
 function consoleLog(data) {
-  console.log(data);
+  // console.log(data);
 }
 
 function socketMain(io) {
@@ -14,15 +14,15 @@ function socketMain(io) {
 
     socket.on("disconnect", function () {
       //   close user connection
-      console.log(
+      consoleLog(
         "client disconnected. socket id=" +
           getId(socket) +
           "  , total clients=" +
           getClientCount()
       );
-      console.log("socket ID: ", getId(socket));
+      consoleLog("socket ID: ", getId(socket));
       const data = myCache.get(getId(socket));
-      console.log("🚀 ~ file: video-conference.js:25 ~ data:", data);
+      consoleLog("🚀 ~ file: video-conference.js:25 ~ data:", data);
 
       if (peers[getId(socket)]) {
         const { roomName = "" } = peers[getId(socket)];
@@ -66,7 +66,7 @@ function socketMain(io) {
       socket.join(data.roomName);
       if (router) {
         if (router) {
-          console.log("getRouterRtpCapabilities: ", router.rtpCapabilities);
+          consoleLog("getRouterRtpCapabilities: ", router.rtpCapabilities);
           sendResponse(router.rtpCapabilities, callback);
         } else {
           sendReject({ text: "ERROR- router NOT READY" }, callback);
@@ -226,7 +226,7 @@ function socketMain(io) {
       );
       const producer = getProducer(remoteId, kind, mode);
       if (!producer) {
-        console.error(
+        consoleLog(
           "producer NOT EXIST for remoteId=%s kind=%s",
           remoteId,
           kind,
@@ -247,7 +247,7 @@ function socketMain(io) {
       //subscribeConsumer = consumer;
 
       if (consumer === null) {
-        console.log("CAN NOT CONSUME");
+        consoleLog("CAN NOT CONSUME");
         return;
       }
 
@@ -497,7 +497,7 @@ function socketMain(io) {
       router = await worker.createRouter({ mediaCodecs });
     }
 
-    console.log(`Router ID: ${router.id}`, peers.length);
+    consoleLog(`Router ID: ${router.id}`, peers.length);
 
     rooms[roomName] = {
       router,
@@ -620,8 +620,8 @@ function socketMain(io) {
           delete videoProducers[id][mode];
         }
       }
-      console.log(videoProducers);
-      console.log("videoProducers count=" + Object.keys(videoProducers).length);
+      consoleLog(videoProducers);
+      consoleLog("videoProducers count=" + Object.keys(videoProducers).length);
     } else if (kind === "audio") {
       if (audioProducers[id] && audioProducers[id][mode]) {
         if (mode == MODE_STREAM) {
@@ -630,10 +630,10 @@ function socketMain(io) {
           delete audioProducers[id][mode];
         }
       }
-      console.log(audioProducers);
-      console.log("audioProducers count=" + Object.keys(audioProducers).length);
+      consoleLog(audioProducers);
+      consoleLog("audioProducers count=" + Object.keys(audioProducers).length);
 
-      // console.log(
+      // consoleLog(
       //     'audioProducers count=' + Object.keys(audioProducers).length
       // );
     } else {
@@ -696,7 +696,7 @@ function socketMain(io) {
   }
 
   function addConsumer(localId, remoteId, consumer, kind, mode) {
-    console.log(
+    consoleLog(
       "🚀 ~ file: video-conference.js:684 ~ addConsumer ~ consumer:",
       consumer
     );
