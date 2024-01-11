@@ -1,5 +1,8 @@
+require("dotenv").config();
 const { connect } = require("mongoose");
 
-const connection = connect("mongodb://localhost:27017/meet");
+const mongodb_uri = process.env.MONGODB_URI || "mongodb://localhost:27017/meet";
+
+const connection = connect(mongodb_uri);
 
 module.exports = connection;
