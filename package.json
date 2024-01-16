@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon app.js",
+    "start": "node app.js",
+    "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,6 +19,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "httpolyglot": "^0.1.2",
     "jsonwebtoken": "^9.0.2",
     "mediasoup": "^3.13.13",
     "mongoose": "^8.0.4",

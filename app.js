@@ -1,7 +1,10 @@
+require("dotenv").config();
 const express = require("express");
-const http = require("http");
+const https = require("httpolyglot");
+const fs = require("fs");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const path = require("path");
 
 const connection = require("./config");
 const socketMain = require("./socket");
@@ -13,22 +16,29 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const server = http.createServer(app);
+const options = {
+  key: fs.readFileSync("./ssl/key.pem", "utf-8"),
+  cert: fs.readFileSync("./ssl/cert.pem", "utf-8"),
+};
 
+app.use(express.static(path.join(__dirname, "build")));
 app.get("/", (req, res) => {
-  res.send("webrtc server running");
+  res.sendFile(path.join(__dirname, "build", "index.html"));
 });
 
 app.use("/api", authRouter);
 
-server.listen(8080, async () => {
+const server = https.createServer(options, app);
+const port = process.env.PORT || 8000;
+
+server.listen(port, async () => {
   try {
     await connection;
     console.log("Mongodb connected!");
   } catch (error) {
     console.log("Mongodb connection err:", err);
   }
-  console.log("Server is running on port: 8080");
+  console.log(`Server is running on port: ${port}`);
 });
 
 const io = new Server(server, {
