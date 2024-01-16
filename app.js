@@ -36,7 +36,7 @@ server.listen(port, async () => {
     await connection;
     console.log("Mongodb connected!");
   } catch (error) {
-    console.log("Mongodb connection err:", err);
+    console.log("Mongodb connection err:", error);
   }
   console.log(`Server is running on port: ${port}`);
 });
