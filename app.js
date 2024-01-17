@@ -4,6 +4,7 @@ const https = require("httpolyglot");
 const fs = require("fs");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const path = require("path");
 
 const connection = require("./config");
 const socketMain = require("./socket");
@@ -17,6 +18,8 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
+
+app.use(express.static(path.join(__dirname, "build")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -26,7 +29,7 @@ const options = {
 };
 
 app.get("/", (req, res) => {
-  res.send("Welcome to video meet server.");
+  res.sendFile(path.join(__dirname, "build", "index.html"));
 });
 
 app.use("/api", authRouter);
