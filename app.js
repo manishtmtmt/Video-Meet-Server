@@ -4,7 +4,6 @@ const https = require("httpolyglot");
 const fs = require("fs");
 const { Server } = require("socket.io");
 const cors = require("cors");
-const path = require("path");
 
 const connection = require("./config");
 const socketMain = require("./socket");
@@ -21,9 +20,8 @@ const options = {
   cert: fs.readFileSync("./ssl/cert.pem", "utf-8"),
 };
 
-app.use(express.static(path.join(__dirname, "build")));
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "build", "index.html"));
+  res.send("Welcome to video meet server.");
 });
 
 app.use("/api", authRouter);
