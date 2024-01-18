@@ -457,12 +457,25 @@ function socketMain(io) {
       ],
     },
     // WebRtcTransport settings
+    // webRtcTransport: {
+    //   listenIps: [{ ip: "13.232.240.57", announcedIp: null }],
+    //   enableUdp: true,
+    //   enableTcp: true,
+    //   preferUdp: true,
+    //   maxIncomingBitrate: 1500000,
+    //   initialAvailableOutgoingBitrate: 1000000,
+    // },
     webRtcTransport: {
-      listenIps: [{ ip: "13.232.240.57", announcedIp: null }],
+      listenInfos: [
+        {
+          protocol: "udp",
+          ip: "127.0.0.1",
+          announcedIp: "13.232.240.57",
+        },
+      ],
       enableUdp: true,
-      enableTcp: true,
+      enableTcp: false,
       preferUdp: true,
-      maxIncomingBitrate: 1500000,
       initialAvailableOutgoingBitrate: 1000000,
     },
   };
