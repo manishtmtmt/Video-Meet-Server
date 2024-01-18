@@ -458,7 +458,7 @@ function socketMain(io) {
     },
     // WebRtcTransport settings
     webRtcTransport: {
-      listenIps: [{ ip: "0.0.0.0", announcedIp: "13.232.240.57" }],
+      listenIps: [{ ip: "13.232.240.57", announcedIp: null }],
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
