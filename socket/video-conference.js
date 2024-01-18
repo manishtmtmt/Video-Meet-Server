@@ -469,7 +469,7 @@ function socketMain(io) {
       listenInfos: [
         {
           protocol: "udp",
-          ip: "127.0.0.1",
+          ip: "13.232.240.57",
           announcedIp: "13.232.240.57",
         },
       ],
