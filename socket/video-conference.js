@@ -469,12 +469,12 @@ function socketMain(io) {
       listenInfos: [
         {
           protocol: "udp",
-          ip: "0.0.0.0",
+          ip: "127.0.0.1",
           announcedIp: "13.232.240.57",
         },
       ],
       enableUdp: true,
-      enableTcp: false,
+      enableTcp: true,
       preferUdp: true,
       initialAvailableOutgoingBitrate: 1000000,
     },
