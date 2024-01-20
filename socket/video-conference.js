@@ -51,6 +51,13 @@ function socketMain(io) {
     });
 
     socket.on("getRouterRtpCapabilities", async (data, callback) => {
+      console.log("rooms[data.roomName]:", rooms[data.roomName]);
+      if (data.peerRoleType === "student") {
+        if (!rooms[data.roomName]) {
+          sendReject({ text: "ERROR- Room doesn't exist." }, callback);
+          return;
+        }
+      }
       const router = await createRoom(data.roomName, getId(socket));
       peers[getId(socket)] = {
         socket,
@@ -61,6 +68,7 @@ function socketMain(io) {
         peerDetails: {
           name: data.peername,
           isAdmin: false,
+          peerRoleType: data.peerRoleType,
         },
       };
       socket.join(data.roomName);
@@ -131,6 +139,7 @@ function socketMain(io) {
       console.log("--broadcast newProducer ---");
       socket.broadcast.emit("newProducer", {
         remotePeerName: peers[id].peerDetails.name,
+        remotePeerRoleType: peers[id].peerDetails.peerRoleType,
         socketId: id,
         producerId: producer.id,
         kind: producer.kind,
@@ -278,7 +287,11 @@ function socketMain(io) {
 
       console.log("-- consumer ready ---");
       sendResponse(
-        { params, remotePeerName: remotePeerDetails.name },
+        {
+          params,
+          remotePeerName: remotePeerDetails.name,
+          remotePeerRoleType: remotePeerDetails.peerRoleType,
+        },
         callback
       );
     });
@@ -341,7 +354,7 @@ function socketMain(io) {
 
     // --- send error to client ---
     function sendReject(error, callback) {
-      callback(error.toString(), null);
+      callback(JSON.stringify(error), null);
     }
 
     function sendback(socket, message) {
@@ -476,7 +489,8 @@ function socketMain(io) {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      initialAvailableOutgoingBitrate: 1000000,
+      initialAvailableOutgoingBitrate: 300000,
+      maxIncomingBitrate: 500000,
     },
   };
 
@@ -864,9 +878,9 @@ function socketMain(io) {
         return;
       });
 
-    //if (consumer.type === 'simulcast') {
-    //  await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
-    //}
+    if (consumer.type === 'simulcast') {
+     await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
+    }
 
     return {
       consumer: consumer,
