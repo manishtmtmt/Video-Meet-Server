@@ -1,4 +1,5 @@
-const NodeCache = require("node-cache");
+const { myCache } = require("../router");
+
 function consoleLog(data) {
   // console.log(data);
 }
@@ -7,7 +8,6 @@ function socketMain(io) {
   const conferenceIO = io.of("/video-conference");
   const MODE_STREAM = "stream";
   const MODE_SHARE_SCREEN = "share_screen";
-  const myCache = new NodeCache();
 
   conferenceIO.on("connection", (socket) => {
     console.log("conference");
@@ -52,16 +52,41 @@ function socketMain(io) {
 
     socket.on("getRouterRtpCapabilities", async (data, callback) => {
       console.log("rooms[data.roomName]:", rooms[data.roomName]);
+      const auth = data.token;
+      console.log("🚀 ~ socket.on ~ auth:", auth);
+      const roomId = data.roomName;
       if (data.peerRoleType === "student") {
         if (!rooms[data.roomName]) {
           sendReject({ text: "ERROR- Room doesn't exist." }, callback);
           return;
         }
       }
+
+      if (!auth) {
+        sendReject({ text: "ERROR- Auth is required." }, callback);
+        return;
+      }
+
+      const sid_l = myCache.get(auth.toString());
+      console.log("🚀 ~ socket.on ~ sid_l:", sid_l);
+      if (sid_l) {
+        let room = myCache.get(roomId);
+        if (room) {
+          room = [...room, { sid: getId(socket), uuid: sid_l }];
+          myCache.set(roomId, room);
+        } else {
+          myCache.set(roomId, [{ sid: getId(socket), uuid: sid_l }]);
+        }
+        socket.emit("handshake", { roomId, uuid: sid_l });
+      } else {
+        sendReject({ text: "ERROR- Token is required, Login Again" }, callback);
+        return;
+      }
+
       const router = await createRoom(data.roomName, getId(socket));
       peers[getId(socket)] = {
         socket,
-        roomName: data.roomName,
+        roomName: roomId,
         transports: [],
         producers: [],
         consumers: [],
@@ -71,7 +96,7 @@ function socketMain(io) {
           peerRoleType: data.peerRoleType,
         },
       };
-      socket.join(data.roomName);
+      socket.join(roomId);
       if (router) {
         if (router) {
           console.log("getRouterRtpCapabilities: ", router.rtpCapabilities);
@@ -878,8 +903,8 @@ function socketMain(io) {
         return;
       });
 
-    if (consumer.type === 'simulcast') {
-     await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
+    if (consumer.type === "simulcast") {
+      await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
     }
 
     return {

@@ -8,7 +8,7 @@ const path = require("path");
 
 const connection = require("./config");
 const socketMain = require("./socket");
-const authRouter = require("./router/auth.router");
+const { router } = require("./router");
 
 const app = express();
 
@@ -32,7 +32,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "build", "index.html"));
 });
 
-app.use("/api", authRouter);
+app.use("/api", router);
 
 const server = https.createServer(options, app);
 const port = process.env.PORT || 8000;
