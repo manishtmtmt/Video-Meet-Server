@@ -1,7 +1,7 @@
 const { myCache } = require("../router");
 
 function consoleLog(data) {
-  // console.log(data);
+  // consoleLog(data);
 }
 
 function socketMain(io) {
@@ -10,19 +10,19 @@ function socketMain(io) {
   const MODE_SHARE_SCREEN = "share_screen";
 
   conferenceIO.on("connection", (socket) => {
-    console.log("conference");
+    consoleLog("conference");
 
     socket.on("disconnect", function () {
       //   close user connection
-      console.log(
+      consoleLog(
         "client disconnected. socket id=" +
           getId(socket) +
           "  , total clients=" +
           getClientCount()
       );
-      console.log("socket ID: ", getId(socket));
+      consoleLog("socket ID: ", getId(socket));
       const data = myCache.get(getId(socket));
-      console.log("🚀 ~ file: video-conference.js:25 ~ data:", data);
+      consoleLog("🚀 ~ file: video-conference.js:25 ~ data:", data);
 
       if (peers[getId(socket)]) {
         const { roomName = "" } = peers[getId(socket)];
@@ -46,15 +46,31 @@ function socketMain(io) {
       const message = data.message;
       const peername = peers[localId].peerDetails.name;
       const roomId = peers[localId].roomName;
-      conferenceIO.to(roomId).emit("chat", { message, peername });
+      const time = data.time;
+      conferenceIO.to(roomId).emit("chat", { message, peername, time });
       sendResponse({ message: data.message, peername }, callback);
     });
 
+    socket.on("webCamStatus", (data, callback) => {
+      const socketId = getId(socket);
+      const roomId = peers[socketId].roomName;
+      console.log(
+        "🚀 ~ file: video-conference.js:55 ~ socket.on ~ socketId:",
+        socketId,
+        data
+      );
+      conferenceIO
+        .to(roomId)
+        .emit("webCamStatus", { remoteSocketId: socketId, ...data });
+      sendResponse({ remoteSocketId: socketId, ...data }, callback);
+    });
+
     socket.on("getRouterRtpCapabilities", async (data, callback) => {
-      console.log("rooms[data.roomName]:", rooms[data.roomName]);
+      consoleLog("rooms[data.roomName]:", rooms[data.roomName]);
       const auth = data.token;
-      console.log("🚀 ~ socket.on ~ auth:", auth);
+      consoleLog("🚀 ~ socket.on ~ auth:", auth);
       const roomId = data.roomName;
+      const language = data.peerLanguage;
       if (data.peerRoleType === "student") {
         if (!rooms[data.roomName]) {
           sendReject({ text: "ERROR- Room doesn't exist." }, callback);
@@ -68,16 +84,26 @@ function socketMain(io) {
       }
 
       const sid_l = myCache.get(auth.toString());
-      console.log("🚀 ~ socket.on ~ sid_l:", sid_l);
+      consoleLog("🚀 ~ socket.on ~ sid_l:", sid_l);
       if (sid_l) {
         let room = myCache.get(roomId);
         if (room) {
-          room = [...room, { sid: getId(socket), uuid: sid_l }];
+          room = [
+            ...room,
+            { sid: getId(socket), uuid: sid_l, language, name: data.peername },
+          ];
           myCache.set(roomId, room);
         } else {
-          myCache.set(roomId, [{ sid: getId(socket), uuid: sid_l }]);
+          myCache.set(roomId, [
+            { sid: getId(socket), uuid: sid_l, language, name: data.peername },
+          ]);
         }
-        socket.emit("handshake", { roomId, uuid: sid_l });
+        socket.emit("handshake", {
+          roomId,
+          uuid: sid_l,
+          language,
+          name: data.peername,
+        });
       } else {
         sendReject({ text: "ERROR- Token is required, Login Again" }, callback);
         return;
@@ -99,7 +125,7 @@ function socketMain(io) {
       socket.join(roomId);
       if (router) {
         if (router) {
-          console.log("getRouterRtpCapabilities: ", router.rtpCapabilities);
+          consoleLog("getRouterRtpCapabilities: ", router.rtpCapabilities);
           sendResponse(router.rtpCapabilities, callback);
         } else {
           sendReject({ text: "ERROR- router NOT READY" }, callback);
@@ -109,7 +135,7 @@ function socketMain(io) {
 
     // --- producer ----
     socket.on("createProducerTransport", async (data, callback) => {
-      console.log("-- createProducerTransport ---");
+      consoleLog("-- createProducerTransport ---");
       const mode = data.mode;
       const roomName = peers[getId(socket)].roomName;
 
@@ -121,6 +147,10 @@ function socketMain(io) {
       transport.observer.on("close", () => {
         const id = getId(socket);
         const videoProducer = getProducer(id, "video", mode);
+        console.log(
+          "🚀 ~ file: video-conference.js:135 ~ videoProducer:",
+          videoProducer
+        );
         if (videoProducer) {
           videoProducer.close();
           removeProducer(id, "video", mode);
@@ -133,7 +163,7 @@ function socketMain(io) {
         removeProducerTransport(id, transport);
         // removeProducerFromPeers(id, )
       });
-      //console.log('-- createProducerTransport params:', params);
+      //consoleLog('-- createProducerTransport params:', params);
       sendResponse(params, callback);
     });
 
@@ -145,7 +175,7 @@ function socketMain(io) {
 
     socket.on("produce", async (data, callback) => {
       const { kind, rtpParameters, mode } = data;
-      console.log("-- produce --- kind=" + kind);
+      consoleLog("-- produce --- kind=" + kind);
 
       const id = getId(socket);
       const transport = getProducerTrasnport(id);
@@ -156,12 +186,12 @@ function socketMain(io) {
       const producer = await transport.produce({ kind, rtpParameters });
       addProducer(id, producer, kind, mode);
       producer.observer.on("close", () => {
-        console.log("producer closed --- kind=" + kind);
+        consoleLog("producer closed --- kind=" + kind);
       });
       sendResponse({ id: producer.id }, callback);
 
       // inform clients about new producer
-      console.log("--broadcast newProducer ---");
+      consoleLog("--broadcast newProducer ---");
       socket.broadcast.emit("newProducer", {
         remotePeerName: peers[id].peerDetails.name,
         remotePeerRoleType: peers[id].peerDetails.peerRoleType,
@@ -174,7 +204,7 @@ function socketMain(io) {
 
     // --- consumer ----
     socket.on("createConsumerTransport", async (data, callback) => {
-      console.log("-- createConsumerTransport -- id=" + getId(socket));
+      consoleLog("-- createConsumerTransport -- id=" + getId(socket));
       const roomName = peers[getId(socket)].roomName;
       const router = rooms[roomName].router;
       const { transport, params } = await createTransport(router);
@@ -192,12 +222,12 @@ function socketMain(io) {
               */
         removeConsumerTransport(localId, transport);
       });
-      //console.log('-- createTransport params:', params);
+      //consoleLog('-- createTransport params:', params);
       sendResponse(params, callback);
     });
 
     socket.on("connectConsumerTransport", async (data, callback) => {
-      console.log("-- connectConsumerTransport -- id=" + getId(socket));
+      consoleLog("-- connectConsumerTransport -- id=" + getId(socket));
       let transport = getConsumerTrasnport(getId(socket));
       if (!transport) {
         console.error("transport NOT EXIST for id=" + getId(socket));
@@ -219,12 +249,12 @@ function socketMain(io) {
 
     socket.on("getCurrentProducers", async (data, callback) => {
       const clientId = data.localId;
-      console.log("-- getCurrentProducers for Id=" + clientId);
+      consoleLog("-- getCurrentProducers for Id=" + clientId);
 
       const remoteVideoIds = getRemoteIds(clientId, "video");
-      console.log("-- remoteVideoIds:", remoteVideoIds);
+      consoleLog("-- remoteVideoIds:", remoteVideoIds);
       const remoteAudioIds = getRemoteIds(clientId, "audio");
-      console.log("-- remoteAudioIds:", remoteAudioIds);
+      consoleLog("-- remoteAudioIds:", remoteAudioIds);
 
       sendResponse(
         {
@@ -240,7 +270,7 @@ function socketMain(io) {
       const kind = data.kind;
       const mode = data.mode;
 
-      console.log("-- consumeAdd -- localId=%s kind=%s", localId, kind);
+      consoleLog("-- consumeAdd -- localId=%s kind=%s", localId, kind);
 
       let transport = getConsumerTrasnport(localId);
       if (!transport) {
@@ -250,7 +280,7 @@ function socketMain(io) {
       const rtpCapabilities = data.rtpCapabilities;
       const remoteId = data.remoteId;
       myCache.set(localId, { kind, mode, localId, remoteId });
-      console.log(
+      consoleLog(
         "-- consumeAdd - localId=" +
           localId +
           " remoteId=" +
@@ -260,7 +290,7 @@ function socketMain(io) {
       );
       const producer = getProducer(remoteId, kind, mode);
       if (!producer) {
-        console.log(
+        consoleLog(
           "producer NOT EXIST for remoteId=%s kind=%s",
           remoteId,
           kind,
@@ -281,22 +311,22 @@ function socketMain(io) {
       //subscribeConsumer = consumer;
 
       if (consumer === null) {
-        console.log("CAN NOT CONSUME");
+        consoleLog("CAN NOT CONSUME");
         return;
       }
 
       addConsumer(localId, remoteId, consumer, kind, mode); // TODO: MUST comination of  local/remote id
-      console.log(
+      consoleLog(
         "addConsumer localId=%s, remoteId=%s, kind=%s",
         localId,
         remoteId,
         kind
       );
       consumer.observer.on("close", () => {
-        console.log("consumer closed ---");
+        consoleLog("consumer closed ---");
       });
       consumer.on("producerclose", () => {
-        console.log("consumer -- on.producerclose");
+        consoleLog("consumer -- on.producerclose");
         consumer.close();
         removeConsumer(localId, remoteId, kind, mode);
 
@@ -310,7 +340,7 @@ function socketMain(io) {
       });
       const remotePeerDetails = peers[remoteId].peerDetails;
 
-      console.log("-- consumer ready ---");
+      consoleLog("-- consumer ready ---");
       sendResponse(
         {
           params,
@@ -326,7 +356,7 @@ function socketMain(io) {
       const remoteId = data.remoteId;
       const kind = data.kind;
       const mode = data.mode;
-      console.log(
+      consoleLog(
         "-- resumeAdd localId=%s remoteId=%s kind=%s",
         localId,
         remoteId,
@@ -373,7 +403,7 @@ function socketMain(io) {
 
     // --- send response to client ---
     function sendResponse(response, callback) {
-      //console.log('sendResponse() callback:', callback);
+      //consoleLog('sendResponse() callback:', callback);
       callback(null, response);
     }
 
@@ -394,8 +424,8 @@ function socketMain(io) {
       // WARN: undocumented method to get clients number
 
       var nspSockets = await conferenceIO.allSockets();
-      console.log("nspSockets");
-      console.log(nspSockets);
+      consoleLog("nspSockets");
+      consoleLog(nspSockets);
     };
 
     function cleanUpPeer(socket) {
@@ -507,8 +537,8 @@ function socketMain(io) {
       listenInfos: [
         {
           protocol: "udp",
-          ip: "::",
-          announcedIp: "13.232.240.57",
+          ip: "127.0.0.1",
+          announcedIp: "127.0.0.1",
         },
       ],
       enableUdp: true,
@@ -533,7 +563,7 @@ function socketMain(io) {
     worker = await mediasoup.createWorker();
     // router = await worker.createRouter({ mediaCodecs });
     //producerTransport = await router.createWebRtcTransport(mediasoupOptions.webRtcTransport);
-    console.log("-- mediasoup worker start. --");
+    consoleLog("-- mediasoup worker start. --");
   }
 
   startWorker();
@@ -549,7 +579,7 @@ function socketMain(io) {
       router = await worker.createRouter({ mediaCodecs });
     }
 
-    console.log(`Router ID: ${router.id}`, peers.length);
+    consoleLog(`Router ID: ${router.id}`, peers.length);
 
     rooms[roomName] = {
       router,
@@ -579,7 +609,7 @@ function socketMain(io) {
 
   function addProducerTrasport(id, transport) {
     producerTransports[id] = transport;
-    console.log(
+    consoleLog(
       "producerTransports count=" + Object.keys(producerTransports).length
     );
 
@@ -593,7 +623,7 @@ function socketMain(io) {
 
   function removeProducerTransport(id, transport) {
     delete producerTransports[id];
-    console.log(
+    consoleLog(
       "producerTransports count=" + Object.keys(producerTransports).length
     );
   }
@@ -638,16 +668,16 @@ function socketMain(io) {
         videoProducers[id] = {};
       }
       videoProducers[id][mode] = producer;
-      console.log("addProducer");
+      consoleLog("addProducer");
 
-      console.log(videoProducers);
-      console.log("videoProducers count=" + Object.keys(videoProducers).length);
+      consoleLog(videoProducers);
+      consoleLog("videoProducers count=" + Object.keys(videoProducers).length);
     } else if (kind === "audio") {
       if (audioProducers[id] == undefined) {
         audioProducers[id] = {};
       }
       audioProducers[id][mode] = producer;
-      console.log("audioProducers count=" + Object.keys(audioProducers).length);
+      consoleLog("audioProducers count=" + Object.keys(audioProducers).length);
     } else {
       console.warn("UNKNOWN producer kind=" + kind);
     }
@@ -672,8 +702,8 @@ function socketMain(io) {
           delete videoProducers[id][mode];
         }
       }
-      console.log(videoProducers);
-      console.log("videoProducers count=" + Object.keys(videoProducers).length);
+      consoleLog(videoProducers);
+      consoleLog("videoProducers count=" + Object.keys(videoProducers).length);
     } else if (kind === "audio") {
       if (audioProducers[id] && audioProducers[id][mode]) {
         if (mode == MODE_STREAM) {
@@ -682,10 +712,10 @@ function socketMain(io) {
           delete audioProducers[id][mode];
         }
       }
-      console.log(audioProducers);
-      console.log("audioProducers count=" + Object.keys(audioProducers).length);
+      consoleLog(audioProducers);
+      consoleLog("audioProducers count=" + Object.keys(audioProducers).length);
 
-      // console.log(
+      // consoleLog(
       //     'audioProducers count=' + Object.keys(audioProducers).length
       // );
     } else {
@@ -704,7 +734,7 @@ function socketMain(io) {
 
   function addConsumerTrasport(id, transport) {
     consumerTransports[id] = transport;
-    console.log(
+    consoleLog(
       "consumerTransports count=" + Object.keys(consumerTransports).length
     );
 
@@ -718,7 +748,7 @@ function socketMain(io) {
 
   function removeConsumerTransport(id, transport) {
     delete consumerTransports[id];
-    console.log(
+    consoleLog(
       "consumerTransports count=" + Object.keys(consumerTransports).length
     );
   }
@@ -748,7 +778,7 @@ function socketMain(io) {
   }
 
   function addConsumer(localId, remoteId, consumer, kind, mode) {
-    console.log(
+    consoleLog(
       "🚀 ~ file: video-conference.js:684 ~ addConsumer ~ consumer:",
       consumer
     );
@@ -758,13 +788,13 @@ function socketMain(io) {
     const set = getConsumerSet(localId, kind, mode);
     if (set) {
       set[remoteId] = consumer;
-      console.log("consumers kind=%s count=%d", kind, Object.keys(set).length);
+      consoleLog("consumers kind=%s count=%d", kind, Object.keys(set).length);
     } else {
-      console.log("new set for kind=%s, localId=%s", kind, localId);
+      consoleLog("new set for kind=%s, localId=%s", kind, localId);
       const newSet = {};
       newSet[remoteId] = consumer;
       addConsumerSet(localId, newSet, kind, mode);
-      console.log(
+      consoleLog(
         "consumers kind=%s count=%d",
         kind,
         Object.keys(newSet).length
@@ -791,9 +821,9 @@ function socketMain(io) {
         delete set[remoteId][mode];
       }
 
-      console.log("consumers kind=%s count=%d", kind, Object.keys(set).length);
+      consoleLog("consumers kind=%s count=%d", kind, Object.keys(set).length);
     } else {
-      console.log("NO set for kind=%s, localId=%s", kind, localId);
+      consoleLog("NO set for kind=%s, localId=%s", kind, localId);
     }
   }
 
@@ -817,7 +847,7 @@ function socketMain(io) {
         delete set[key];
       }
 
-      console.log(
+      consoleLog(
         "removeConsumerSetDeep video consumers count=" + Object.keys(set).length
       );
     }
@@ -838,7 +868,7 @@ function socketMain(io) {
         delete audioSet[key];
       }
 
-      console.log(
+      consoleLog(
         "removeConsumerSetDeep audio consumers count=" +
           Object.keys(audioSet).length
       );
@@ -865,7 +895,7 @@ function socketMain(io) {
     const transport = await router.createWebRtcTransport(
       mediasoupOptions.webRtcTransport
     );
-    console.log("-- create transport id=" + transport.id);
+    consoleLog("-- create transport id=" + transport.id);
 
     return {
       transport: transport,
